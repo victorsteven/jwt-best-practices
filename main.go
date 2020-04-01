@@ -38,12 +38,12 @@ func main() {
 	router.POST("/login", Login)
 	router.POST("/todo", CreateTodo)
 	router.POST("/logout", Logout)
-	router.POST("/token/refresh", Refresh)
+	router.POST("/refresh", Refresh)
 	log.Fatal(router.Run(":8080"))
 }
 
 type User struct {
-	ID uint64            `json:"id"`
+	ID int64            `json:"id"`
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
@@ -83,7 +83,7 @@ func Login(c *gin.Context) {
 
 type AccessDetails struct {
 	AccessUuid string
-	UserId   uint64
+	UserId   int64
 }
 
 type TokenDetails struct {
@@ -96,7 +96,7 @@ type TokenDetails struct {
 }
 
 
-func CreateToken(userid uint64) (*TokenDetails, error) {
+func CreateToken(userid int64) (*TokenDetails, error) {
 	td := &TokenDetails{}
 	td.AtExpires = time.Now().Add(time.Minute * 15).Unix()
 	td.AccessUuid = uuid.NewV4().String()
@@ -133,7 +133,7 @@ func CreateToken(userid uint64) (*TokenDetails, error) {
 }
 
 
-func CreateAuth(userid uint64, td *TokenDetails) error {
+func CreateAuth(userid int64, td *TokenDetails) error {
 	at := time.Unix(td.AtExpires, 0) //converting Unix to UTC(to Time object)
 	rt := time.Unix(td.RtExpires, 0)
 	now := time.Now()
@@ -150,7 +150,7 @@ func CreateAuth(userid uint64, td *TokenDetails) error {
 }
 
 type Todo struct {
-	UserID uint64 `json:"user_id"`
+	UserID int64 `json:"user_id"`
 	Title string `json:"title"`
 }
 
@@ -164,6 +164,8 @@ func ExtractToken(r *http.Request) string {
 	return ""
 }
 
+// Parse, validate, and return a token.
+// keyFunc will receive the parsed token and should return the key for validating.
 func VerifyToken(r *http.Request) (*jwt.Token, error) {
 	tokenString := ExtractToken(r)
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
@@ -213,7 +215,7 @@ func ExtractTokenMetadata(r *http.Request) (*AccessDetails, error) {
 }
 
 
-func FetchAuth(authD *AccessDetails) (uint64, error) {
+func FetchAuth(authD *AccessDetails) (int64, error) {
 	userid, err := client.Get(authD.AccessUuid).Result()
 	if err != nil {
 		return 0, err
@@ -280,8 +282,6 @@ func Refresh(c *gin.Context) {
 		return
 	}
 	refreshToken := mapToken["refresh_token"]
-
-	fmt.Println(refreshToken)
 
 	//verify the token
 	os.Setenv("REFRESH_SECRET", "mcmvmkmsdnfsdmfdsjf") //this should be in an env file
